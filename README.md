@@ -11,6 +11,8 @@ It also allows me to push that container into a new image such as "Kyle's Home A
 
 In effect, give me the ability to easily create my own RAG models (using whatever LLM i want to) which are 'experts' on topics I am interested in.
 
+But I am able to do this 100% locally to whatever machine I pull the image into, no server's or communication needed with outside entities. 
+
 ## Repository Structure
 
 ```
