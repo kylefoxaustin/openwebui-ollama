@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # Set variables - replace with your Docker Hub username
-DOCKER_HUB_USERNAME="kylefoxaustin"
-IMAGE_NAME="openwebui-ollama"
+DOCKER_HUB_USERNAME="yourusername"
+IMAGE_NAME="yourdockerimage"
 VERSION="latest"
 
 # Colors for output
