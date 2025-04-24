@@ -15,17 +15,16 @@ The ease of use comes from using OWUI to pull an ollama model, then add .pdfs to
 
 Viola, instant expert system! 
 
-I have already built the containers and placed in my docker.hub repository here: (https://github.com/open-webui/open-webui)
-This container will internally store the LLM models and knowledge base content.  So once it is just how you want it, you can create a Docker image from it and push it to your docker.hub. 
+I have already built the containers and placed in my docker.hub repository here: ([https://github.com/open-webui/open-webui)](https://hub.docker.com/r/kylefoxaustin/openwebui-ollama)
+so that you do not have to build them yourself.  Just pull the container and run it. 
 
-Once you create your 
-I chose a single container OWUI+Ollama It also allows me to push that container into a new image such as "Kyle's Home A/C Equipment Expert:Tinyllama" 
+These containers are designed to internally store the LLM you pull into it as well as the RAG data you add to a Knowledge Base. 
 
-In effect, this gives me the ability to easily create my own RAG models (using whatever LLM I want to) which are 'experts' on topics I am interested in.
+That way, once it is exactly how you want it, you can use docker to push the container as a new image to your docker.hub site.  e.g. "my_expert:latest". 
 
-But I am able to do this 100% locally to whatever machine I pull the image into, no server's or communication needed with outside entities. 
+This container will run 100% locally on the machine it is run on.  The only internet traffic would be when you pull a new model from ollama.  
 
-I made sure this container will run on an Intel/AMD CPU by default (CPU-Only container).  However I built the GPU container to use
+Finally, I made sure this container will run on an Intel/AMD CPU by default (CPU-Only container).  However I built the GPU container to use
 
 an NVIDIA GPU which is installed on the system.  Note that if the GPU 'fails' to be seen, the GPU container will default to use the main cores.
 
