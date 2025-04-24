@@ -1,378 +1,492 @@
-# OpenWebUI with GPU-Accelerated Ollama
+# OpenWebUI with Ollama Docker Images
 
-This repository provides Docker configurations to run [OpenWebUI](https://github.com/open-webui/open-webui) with [Ollama](https://github.com/ollama/ollama), optionally accelerated by NVIDIA GPUs for faster inference on local large language models.
-
-## Overview
-
-This setup provides:
-* OpenWeb UI browser interface locally for your PC to interacting with large language models (LLMs)
-* Instantiates a full Ollama engine in the container (again local)
-* GPU acceleration for faster model inference (when available)
-* Persistent storage for models and conversation history
-* Containerized environment for easy deployment and management
-* Goal is for the user to pull this image to any AMD64 based PC running docker for a full OWUI+Ollama experience
+Docker images combining [OpenWebUI](https://github.com/open-webui/open-webui) with [Ollama](https://github.com/ollama/ollama) in a single container for a seamless AI development experience.
 
 ## Repository Structure
 
 ```
-openwebui/
-├── Docker_Compose/
-│   ├── docker-compose.yml              # Main file (uses official images, no Dockerfile needed)
-│   ├── docker-compose-cpu.yml          # CPU-only version (uses official images, no Dockerfile needed)
-│   ├── docker-compose-custom-cpu.yml   # Custom CPU build (uses Dockerfile.cpu)
-│   └── docker-compose-custom-gpu.yml   # Custom GPU build (uses Dockerfile.gpu)
+openwebui-ollama/
 ├── Dockerfiles/
-│   ├── Dockerfile.cpu                  # For custom CPU builds only
-│   └── Dockerfile.gpu                  # For custom GPU builds only
-└── README.md                           # Documentation
+│   ├── Dockerfile.cpu        # Dockerfile for CPU-only container
+│   └── Dockerfile.gpu        # Dockerfile for GPU-enabled container
+├── tools/
+│   ├── tag_push.sh           # Script for tagging and pushing images
+│   └── test_script_cpu_gpu_containers.sh  # Test script for validating containers
+└── README.md                 # This documentation
 ```
 
-The main docker-compose files (docker-compose.yml and docker-compose-cpu.yml) pull pre-built images directly from their official repositories, so no Dockerfiles are required for these methods. The Dockerfiles are only used with the custom build options.
 
-## Quick Start (Recommended)
 
-The default configuration automatically detects if you have an NVIDIA GPU with the required drivers and uses it. Otherwise, it falls back to CPU.
-However this implies your host machine has installed the necessary NVIDIA GPU infrastructure (e.g. nvidia-smi, drivers, and nvidia build container). 
-Instructions for how to do this pre-step is below under **Setup for GPU Acceleration on Linux**
+## Table of Contents
+- [Repository Structure](#repository-structure)
+- [Overview](#overview)
+- [System Requirements](#system-requirements)
+- [Building the Docker Images](#building-the-docker-images)
+- [Running the Containers](#running-the-containers)
+- [Usage Scenarios](#usage-scenarios)
+- [Environment Variables](#environment-variables)
+- [Data Persistence](#data-persistence)
+- [Troubleshooting](#troubleshooting)
+- [Advanced Configuration](#advanced-configuration)
+- [Security Considerations](#security-considerations)
+- [Updating](#updating)
+- [Performance Tuning](#performance-tuning)
+- [Testing](#testing)
+- [License](#license)
+
+## Overview
+
+These Docker images provide a combined deployment of OpenWebUI and Ollama in a single container, managed by supervisord. This approach offers several advantages over the traditional multi-container setup:
+
+- **Simplified deployment** - Only one container to manage
+- **Reduced configuration complexity** - No need to configure network communication between containers
+- **Shared resources** - More efficient resource utilization
+- **Consistent state** - Both applications start and stop together
+
+The images are available in both CPU and GPU variants to suit different hardware configurations. The GPU version will automatically fall back to CPU operation if no compatible NVIDIA GPU is detected, making it versatile for different environments.
+
+## System Requirements
+
+### CPU Version
+- **Architecture**: x86_64 only (Intel or AMD CPUs, not ARM64/Apple Silicon)
+- **Minimum**: 4 CPU cores, 8GB RAM
+- **Recommended**: 8+ CPU cores, 16GB+ RAM
+- At least 10GB free disk space (more needed for models)
+
+### GPU Version
+- **Architecture**: x86_64 only (Intel or AMD CPUs, not ARM64/Apple Silicon)
+- **Minimum**: NVIDIA GPU with 4GB VRAM, CUDA 11.7+
+- **Recommended**: NVIDIA GPU with 8GB+ VRAM
+- NVIDIA drivers 525.60.13 or later
+- [NVIDIA Container Toolkit](https://github.com/NVIDIA/nvidia-docker) installed
+- At least 10GB free disk space (more needed for models)
+
+## Building the Docker Images
+
+This repository contains Dockerfiles to build both CPU and GPU versions of the combined OpenWebUI and Ollama container.
+
+### Clone the repository
 
 ```bash
 # Clone the repository
-git clone https://github.com/kylefoxaustin/openwebui.git
-cd openwebui
-
-# Start the containers
-docker compose -f Docker_Compose/docker-compose.yml up -d
-
-# Access the web interface
-# http://localhost:8080
+git clone https://github.com/kylefoxaustin/openwebui-ollama.git
+cd openwebui-ollama
 ```
 
-That's it! For most users, this is all you need to do.
-
-## Detailed Setup Instructions
-
-### System Requirements
-
-#### For All Systems
-- Docker Engine (version 20.10.0 or higher)
-- Docker Compose (version 2.0.0 or higher)
-- 8GB+ RAM recommended (16GB+ for larger models)
-- 20GB+ free disk space for models
-
-#### For GPU Acceleration (Optional)
-- NVIDIA GPU with CUDA support
-- NVIDIA Driver (version 470.xx or higher)
-- NVIDIA Container Toolkit (nvidia-docker2)
-
-### Installation Options
-
-This repository offers three deployment options:
-
-1. **Option 1: Quick Start** (`docker-compose.yml`) - Uses official pre-built images with automatic GPU detection (no Dockerfile needed)
-2. **Option 2: CPU-Only** (`docker-compose-cpu.yml`) - Explicitly uses CPU-only configuration with official images (no Dockerfile needed)
-3. **Option 3: Custom Build** - Builds containers from Dockerfiles for CPU (`Dockerfile.cpu`) or GPU (`Dockerfile.gpu`)
-
-### Setup for GPU Acceleration on Linux
-
-If you have an NVIDIA GPU and want to use it for acceleration, you'll need to install the NVIDIA Container Toolkit:
+### Building the CPU Image
 
 ```bash
-# Set up the package repository and GPG key
-distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
-
-# Create directory for keyrings if it doesn't exist
-sudo mkdir -p /etc/apt/keyrings
-
-# Download and install the GPG key
-curl -fsSL https://nvidia.github.io/nvidia-docker/gpgkey | sudo gpg --dearmor -o /etc/apt/keyrings/nvidia-docker.gpg
-
-# Add the repository
-curl -s -L https://nvidia.github.io/nvidia-docker/$distribution/nvidia-docker.list | \
-  sed 's#deb https://#deb [signed-by=/etc/apt/keyrings/nvidia-docker.gpg] https://#g' | \
-  sudo tee /etc/apt/sources.list.d/nvidia-docker.list
-
-# Update package listings
-sudo apt-get update
-
-# Install nvidia-container-toolkit
-sudo apt-get install -y nvidia-container-toolkit
-
-# Configure the runtime
-sudo nvidia-ctk runtime configure --runtime=docker
-
-# Restart Docker to apply changes
-sudo systemctl restart docker
+# Build the CPU image
+docker build -f Dockerfiles/Dockerfile.cpu -t openwebui:cpu .
 ```
 
-Verify the installation:
+### Building the GPU Image
 
 ```bash
-sudo docker run --rm --gpus all nvidia/cuda:11.8.0-base-ubuntu22.04 nvidia-smi
+# Build the GPU image (requires NVIDIA Container Toolkit)
+docker build -f Dockerfiles/Dockerfile.gpu -t openwebui:gpu .
 ```
 
-If the above command shows your GPU information, the toolkit is properly set up.
+Note: The GPU image will automatically fall back to CPU operation if no compatible NVIDIA GPU is detected or if the proper NVIDIA drivers and container toolkit are not installed. This makes it safe to use the GPU image even if you're unsure about your GPU configuration.
 
-### Deployment Options
+## Running the Containers
 
-#### Option 1: Quick Start with Official Images (Recommended)
+After building the images, you can run them as follows:
 
-This approach pulls pre-built images directly from their repositories and is the quickest way to get started. No Dockerfiles are needed for this method.
+### CPU Version
 
 ```bash
-# Auto-detects GPU if available, otherwise uses CPU
-docker compose -f Docker_Compose/docker-compose.yml up -d
+docker run -d \
+  --name openwebui \
+  -p 8080:8080 \
+  -p 11434:11434 \
+  -v ollama-data:/root/.ollama \
+  -v openwebui-data:/app/backend/data \
+  openwebui:cpu
 ```
 
-#### Option 2: CPU-Only with Official Images
-
-Use this option if you specifically want to ensure only CPU is used, even if you have a GPU available.
+### GPU Version
 
 ```bash
-# Explicitly uses CPU-only configuration
-docker compose -f Docker_Compose/docker-compose-cpu.yml up -d
+docker run -d \
+  --name openwebui-gpu \
+  --gpus all \
+  -p 8080:8080 \
+  -p 11434:11434 \
+  -v ollama-data:/root/.ollama \
+  -v openwebui-data:/app/backend/data \
+  openwebui:gpu
 ```
 
-#### Option 3: Custom Build
+Note: If you run the GPU version without the `--gpus all` flag or on a system without a compatible NVIDIA GPU, the container will automatically operate in CPU-only mode. This makes the GPU image versatile for deployment across different environments.
 
-This approach builds the containers from the provided Dockerfiles, giving you more control but taking longer.
+Access the web interface at: http://localhost:8080
 
-For CPU-only systems:
-```bash
-# Builds and runs a custom CPU-only container
-docker compose -f Docker_Compose/docker-compose-custom-cpu.yml up -d --build
-```
+## Usage Scenarios
 
-For systems with NVIDIA GPU:
-```bash
-# Builds and runs a custom GPU-enabled container
-docker compose -f Docker_Compose/docker-compose-custom-gpu.yml up -d --build
-```
+### Coexisting with Local Ollama Installation
 
-### Windows Installation
-
-This setup can run on Windows through Docker Desktop, with some specific considerations:
-
-#### For Windows with CPU-only mode:
-
-1. Install [Docker Desktop for Windows](https://www.docker.com/products/docker-desktop/)
-2. Ensure WSL2 (Windows Subsystem for Linux) is enabled and configured as the default engine for Docker Desktop
-3. In PowerShell or Command Prompt:
-
-```powershell
-# Clone the repository
-git clone https://github.com/kylefoxaustin/openwebui.git
-cd openwebui
-
-# Start the containers (note the path format for Windows)
-docker compose -f Docker_Compose\docker-compose.yml up -d
-```
-
-#### For Windows with NVIDIA GPU acceleration:
-
-1. Install [Docker Desktop for Windows](https://www.docker.com/products/docker-desktop/)
-2. Install [WSL2](https://learn.microsoft.com/en-us/windows/wsl/install)
-3. Install the [NVIDIA CUDA drivers for Windows](https://developer.nvidia.com/cuda-downloads)
-4. Install the latest [NVIDIA Container Toolkit for WSL2](https://docs.nvidia.com/cuda/wsl-user-guide/index.html)
-5. Ensure Docker Desktop is configured to use WSL2
-6. In PowerShell or from the Ubuntu WSL2 terminal:
+If you already have Ollama running on your host machine, you'll need to map the container's Ollama port to a different host port:
 
 ```bash
-# Clone the repository
-git clone https://github.com/kylefoxaustin/openwebui.git
-cd openwebui
-
-# Start the containers
-docker compose -f Docker_Compose/docker-compose.yml up -d  # in WSL2 bash
-# or
-docker compose -f Docker_Compose\docker-compose.yml up -d  # in PowerShell
+docker run -d \
+  --name openwebui \
+  -p 8080:8080 \
+  -p 11435:11434 \
+  -v ollama-data:/root/.ollama \
+  -v openwebui-data:/app/backend/data \
+  kylefoxaustin/openwebui-ollama:latest
 ```
 
-**Note:** GPU acceleration on Windows requires more configuration than on Linux and may have some performance differences. For best performance with GPU acceleration, a Linux environment is recommended.
+### Running CPU and GPU Containers Simultaneously
 
-## Building and Pushing Docker Images
-
-If you want to build and push these images to your own Docker Hub repository:
+To run both CPU and GPU containers at the same time, use different port mappings:
 
 ```bash
-# Clone the repository
-git clone https://github.com/kylefoxaustin/openwebui.git
-cd openwebui
+# CPU Container
+docker run -d \
+  --name openwebui-cpu \
+  -p 8080:8080 \
+  -p 11434:11434 \
+  -v ollama-cpu-data:/root/.ollama \
+  -v openwebui-cpu-data:/app/backend/data \
+  kylefoxaustin/openwebui-ollama:latest-cpu
 
-# Login to Docker Hub
-docker login
-
-# Build CPU-only image
-docker build -f Dockerfiles/Dockerfile.cpu -t yourusername/openwebui:cpu-only Dockerfiles
-
-# Build GPU-enabled image
-docker build -f Dockerfiles/Dockerfile.gpu -t yourusername/openwebui:gpu-cpu Dockerfiles
-
-# Tag the GPU image as generic
-docker tag yourusername/openwebui:gpu-cpu yourusername/openwebui:generic
-
-# Push all images to Docker Hub
-docker push yourusername/openwebui:cpu-only
-docker push yourusername/openwebui:gpu-cpu
-docker push yourusername/openwebui:generic
-
-# Also push a latest tag
-docker tag yourusername/openwebui:generic yourusername/openwebui:latest
-docker push yourusername/openwebui:latest
+# GPU Container
+docker run -d \
+  --name openwebui-gpu \
+  --gpus all \
+  -p 8081:8080 \
+  -p 11435:11434 \
+  -v ollama-gpu-data:/root/.ollama \
+  -v openwebui-gpu-data:/app/backend/data \
+  kylefoxaustin/openwebui-ollama:latest-gpu
 ```
 
-## Usage
+Access the interfaces at:
+- CPU version: http://localhost:8080
+- GPU version: http://localhost:8081
 
-### Accessing the Interface
+### Using with External Ollama
 
-Once the containers are running, access the OpenWebUI interface at:
-
-```
-http://localhost:8080
-```
-
-### Downloading and Running Models
-
-1. Open the OpenWebUI interface in your browser
-2. Go to the "Models" section
-3. Choose a model from the available options (like Llama 3, Mistral, etc.)
-4. Click "Download" to download the model
-5. Once downloaded, start a conversation with the model
-
-### Verifying GPU Acceleration
-
-To verify that GPU acceleration is working:
-
-1. Start a conversation with a model
-2. While the model is generating a response, run this command:
+To use your OpenWebUI image with an external Ollama instance (e.g., running on another server or container):
 
 ```bash
-nvidia-smi  # Linux or WSL2
+docker run -d \
+  --name openwebui-only \
+  -p 8080:8080 \
+  -e OLLAMA_BASE_URL=http://<ollama-host>:11434 \
+  -v openwebui-data:/app/backend/data \
+  openwebui:cpu
 ```
 
-You should see the Ollama process in the list, confirming GPU usage.
+Replace `<ollama-host>` with the hostname or IP address of your Ollama server.
 
-For a more dynamic view, you can run:
+## Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `OLLAMA_HOST` | Host for Ollama to listen on | `0.0.0.0` |
+| `PORT` | Port for OpenWebUI to listen on | `8080` |
+| `HOST` | Host for OpenWebUI to listen on | `0.0.0.0` |
+| `OLLAMA_BASE_URL` | URL for OpenWebUI to connect to Ollama | `http://localhost:11434` |
+| `NVIDIA_VISIBLE_DEVICES` | (GPU only) Controls which GPUs are visible | `all` |
+| `NVIDIA_DRIVER_CAPABILITIES` | (GPU only) Required NVIDIA capabilities | `compute,utility` |
+
+## Data Persistence
+
+The following volumes are used for data persistence:
+
+- `/root/.ollama`: Ollama models and configuration
+- `/app/backend/data`: OpenWebUI data (conversations, settings, etc.)
+
+For data backup, you can simply create archives of these volumes:
 
 ```bash
-watch -n 1 nvidia-smi  # Linux or WSL2
+# Create a backup directory
+mkdir -p ~/openwebui-backups
+
+# Backup Ollama data
+docker run --rm -v ollama-data:/data -v ~/openwebui-backups:/backup \
+  ubuntu tar czf /backup/ollama-data-$(date +%Y%m%d).tar.gz -C /data .
+
+# Backup OpenWebUI data
+docker run --rm -v openwebui-data:/data -v ~/openwebui-backups:/backup \
+  ubuntu tar czf /backup/openwebui-data-$(date +%Y%m%d).tar.gz -C /data .
 ```
-
-On Windows without WSL2 access, you can check GPU usage through the Task Manager's Performance tab.
-
-## Configuration
-
-### Port Configuration
-
-By default, the services use the following ports:
-
-- `8080`: OpenWebUI interface
-- `11436`: Ollama API (changed from the default 11434 to avoid conflicts with locally installed Ollama)
-
-If you need to change these ports, modify the appropriate docker-compose.yml file.
-
-### Persistent Storage
-
-The configuration includes persistent volumes for:
-
-- `open-webui-data`: Stores conversation history and OpenWebUI configurations
-- `ollama-data`: Stores downloaded models and Ollama configurations
-
-These volumes persist even when the containers are stopped or removed.
 
 ## Troubleshooting
 
-### Check Container Status
-
-```bash
-docker ps | grep -E 'open-webui|ollama'
-```
-
-### View Container Logs
-
-```bash
-# OpenWebUI logs
-docker logs -f open-webui
-
-# Ollama logs
-docker logs -f ollama
-```
-
 ### Common Issues
 
-#### Port Conflicts
+1. **Port Conflicts**: If you see "address already in use" errors, you likely have another service using the same port. Use alternative ports as shown in the usage scenarios.
 
-If you see an error like "port is already allocated", it means another service is using the same port. Edit the docker-compose.yml file to use a different port.
+2. **GPU not detected**: Ensure your NVIDIA drivers are properly installed and the NVIDIA Container Toolkit is set up correctly. Test with:
+   ```bash
+   docker run --gpus all nvidia/cuda:11.8.0-base-ubuntu22.04 nvidia-smi
+   ```
 
-#### GPU Not Being Used
+3. **Container crashes**: Check logs with:
+   ```bash
+   docker logs openwebui
+   ```
 
-If the GPU is not being used:
+   For more detailed logs:
+   ```bash
+   # Ollama logs
+   docker exec -it openwebui cat /var/log/supervisor/ollama.err.log
+   docker exec -it openwebui cat /var/log/supervisor/ollama.out.log
 
-1. Verify NVIDIA Container Toolkit is installed correctly
-2. Ensure your GPU is supported and drivers are installed
-3. Check Ollama logs for any error messages
+   # OpenWebUI logs
+   docker exec -it openwebui cat /var/log/supervisor/openwebui.err.log
+   docker exec -it openwebui cat /var/log/supervisor/openwebui.out.log
 
-#### Windows-Specific Issues
+   # Supervisor logs
+   docker exec -it openwebui cat /var/log/supervisor/supervisord.log
+   ```
 
-1. **WSL2 Not Enabled**: Ensure WSL2 is properly enabled and Docker Desktop is configured to use it
-2. **Path Format Issues**: Windows uses backslashes (`\`) in paths, while Linux/WSL2 uses forward slashes (`/`)
-3. **GPU Passthrough Problems**: GPU passthrough to WSL2 requires specific drivers and configuration
+4. **Models not loading**: The first time you pull a model might take some time. Check the Ollama logs:
+   ```bash
+   docker exec -it openwebui cat /var/log/supervisor/ollama.err.log
+   ```
 
-#### Models Running Slowly
+   You can directly pull models with:
+   ```bash
+   docker exec -it openwebui ollama pull <model-name>
+   ```
 
-- If using GPU, check that your GPU is properly detected with `nvidia-smi`
-- Ensure you have enough system memory (16GB+ recommended for larger models)
-- Try a smaller model that better fits your hardware capabilities
+5. **Web UI not accessible**: Make sure that the internal Ollama instance is properly running:
+   ```bash
+   docker exec -it openwebui curl -s http://localhost:11434/api/tags
+   ```
 
-#### Cannot Access Web Interface
+   Check if the OpenWebUI process is running:
+   ```bash
+   docker exec -it openwebui supervisorctl status
+   ```
 
-- Check if the containers are running with `docker ps`
-- Verify port 8080 is not being used by another application
-- Check container logs for any startup errors
+6. **Out of memory errors**: Larger models require substantial RAM and VRAM. Try a smaller model or increase your container's memory limit:
+   ```bash
+   docker update --memory 16G --memory-swap 32G openwebui
+   ```
 
-## Additional Commands
+7. **Slow model performance**: For GPU containers, make sure CUDA is properly detected:
+   ```bash
+   docker exec -it openwebui-gpu nvidia-smi
+   ```
 
-### Stopping the Containers
+## Advanced Configuration
 
-```bash
-docker compose -f Docker_Compose/docker-compose.yml down
+### Docker Compose
+
+After building your images, you can use Docker Compose for more complex setups. Here's an example configuration:
+
+```yaml
+version: '3.8'
+
+services:
+  openwebui:
+    image: openwebui:gpu  # Use the image you built
+    container_name: openwebui
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+      - openwebui-data:/app/backend/data
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+      - PORT=8080
+      - HOST=0.0.0.0
+      - OLLAMA_BASE_URL=http://localhost:11434
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+volumes:
+  ollama-data:
+  openwebui-data:
 ```
 
-### Updating the Containers
-
+Save this to `docker-compose.yml` and run with:
 ```bash
-cd openwebui
-docker compose -f Docker_Compose/docker-compose.yml pull
-docker compose -f Docker_Compose/docker-compose.yml up -d
+docker-compose up -d
 ```
 
-### Removing Volumes (Caution: This will delete all models and data)
+### Resource Limits
+
+To control CPU and memory usage when running your container:
 
 ```bash
-docker compose -f Docker_Compose/docker-compose.yml down -v
+docker run -d \
+  --name openwebui \
+  --cpus 4 \
+  --memory 8G \
+  -p 8080:8080 \
+  -p 11434:11434 \
+  -v ollama-data:/root/.ollama \
+  -v openwebui-data:/app/backend/data \
+  openwebui:cpu
 ```
 
-## Compatibility
+### Custom Network Configuration
 
-### Hardware Support
+To place your container on a specific network:
 
-This project has been tested with:
+```bash
+# Create a custom network
+docker network create ai-network
 
-- **CPUs**: Intel and AMD x86_64 processors
-- **GPUs**: NVIDIA Quadro RTX 8000, RTX series, and Tesla series
+# Run the container on that network
+docker run -d \
+  --name openwebui \
+  --network ai-network \
+  -p 8080:8080 \
+  -p 11434:11434 \
+  -v ollama-data:/root/.ollama \
+  -v openwebui-data:/app/backend/data \
+  openwebui:cpu
+```
 
-### Operating Systems
+## Security Considerations
 
-- Ubuntu 22.04 LTS (primary test platform)
-- Other Linux distributions with Docker support
-- Windows 10/11 with WSL2 and Docker Desktop
-- macOS with Docker Desktop (CPU-only)
+These containers are designed for development and testing purposes. If deploying in a production environment, consider the following security measures:
+
+1. **Do not expose the container to the public internet** without proper authentication and TLS encryption.
+
+2. **Use a reverse proxy** like Nginx or Traefik with proper SSL/TLS termination.
+
+3. **Run containers with limited privileges**:
+   ```bash
+   docker run -d \
+     --name openwebui \
+     --security-opt=no-new-privileges \
+     --cap-drop=ALL \
+     -p 8080:8080 \
+     -p 11434:11434 \
+     -v ollama-data:/root/.ollama \
+     -v openwebui-data:/app/backend/data \
+     openwebui:cpu
+   ```
+
+4. **Consider network isolation** using Docker networks to limit container communication.
+
+5. **Regularly update** the images to get the latest security patches.
+
+
+
+## Updating
+
+To update to the latest version:
+
+```bash
+# Pull the latest repository changes
+git pull
+
+# Rebuild the images
+docker build -f Dockerfiles/Dockerfile.cpu -t openwebui:cpu .
+docker build -f Dockerfiles/Dockerfile.gpu -t openwebui:gpu .
+
+# Restart your containers
+docker stop openwebui
+docker rm openwebui
+docker run -d \
+  --name openwebui \
+  -p 8080:8080 \
+  -p 11434:11434 \
+  -v ollama-data:/root/.ollama \
+  -v openwebui-data:/app/backend/data \
+  openwebui:cpu
+```
+
+## Performance Tuning
+
+### CPU Performance
+
+For better CPU performance:
+
+1. **Allocate more CPU cores**:
+   ```bash
+   docker run -d --cpus 8 ... openwebui:cpu
+   ```
+
+2. **Enable CPU optimization**:
+   ```bash
+   docker run -d --cpuset-cpus="0-7" ... openwebui:cpu
+   ```
+
+### GPU Performance
+
+For better GPU performance:
+
+1. **Select specific GPUs** if you have multiple:
+   ```bash
+   docker run -d --gpus '"device=0,1"' ... openwebui:gpu
+   ```
+
+2. **Increase shared memory**:
+   ```bash
+   docker run -d --shm-size=8g ... openwebui:gpu
+   ```
+
+3. **Optimize for specific CUDA capabilities**:
+   ```bash
+   docker run -d \
+     -e NVIDIA_DRIVER_CAPABILITIES=compute,utility,video \
+     ... openwebui:gpu
+   ```
+
+## Testing
+
+### Using the Tag and Push Script
+
+After building your images, you can tag and push them to Docker Hub:
+
+1. Update the username in the script:
+   ```bash
+   cd tools
+   nano tag_push.sh
+   # Change DOCKER_HUB_USERNAME to your Docker Hub username
+   ```
+
+2. Run the script:
+   ```bash
+   chmod +x tag_push.sh
+   ./tag_push.sh
+   ```
+
+### Using the Test Script
+
+To verify that your built images are working correctly:
+
+```bash
+cd tools
+chmod +x test_script_cpu_gpu_containers.sh
+./test_script_cpu_gpu_containers.sh
+```
+
+The test script will:
+1. Test if both CPU and GPU images can be used
+2. Verify that the containers start properly
+3. Test that OpenWebUI is accessible
+4. Confirm that the Ollama API is working
+5. For GPU containers, verify GPU accessibility
+6. Provide a detailed test summary
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+These Docker images combine OpenWebUI and Ollama, each with their respective licenses. See the original projects for more information.
 
-## Acknowledgments
+- OpenWebUI: [MIT License](https://github.com/open-webui/open-webui/blob/main/LICENSE)
+- Ollama: [MIT License](https://github.com/ollama/ollama/blob/main/LICENSE)
 
-- [OpenWebUI](https://github.com/open-webui/open-webui) for the web interface
-- [Ollama](https://github.com/ollama/ollama) for the model inference server
-- [NVIDIA](https://github.com/NVIDIA/nvidia-docker) for the Container Toolkit
+---
+
+Maintained by [kylefoxaustin](https://github.com/kylefoxaustin/openwebui-ollama)
+
+Last updated: April 2025
