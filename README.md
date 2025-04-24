@@ -12,7 +12,7 @@ You can already acheive this using separate OWUI and ollama containers, but that
 Viola, instant expert system! 
 
 I have already built the containers and placed in my docker.hub repository here: ([https://github.com/open-webui/open-webui)](https://hub.docker.com/r/kylefoxaustin/openwebui-ollama)
-so that you do not have to build them yourself.  Just pull the container and run it. 
+so that you do not have to build them yourself.   Just pull the container and run it. 
 
 These containers are designed to internally store the LLM you pull into it as well as the RAG data you add to a Knowledge Base. 
 
