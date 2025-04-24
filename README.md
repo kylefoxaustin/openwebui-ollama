@@ -2,6 +2,7 @@
 # Creating Docker Images 
 
 Welcome to the OpenWebUI-Ollama single container repository!
+
 This will enable you to build Docker images combining [OpenWebUI](https://github.com/open-webui/open-webui) with [Ollama](https://github.com/ollama/ollama) in a single container for a seamless AI development experience.
 
 ## Repository Structure
