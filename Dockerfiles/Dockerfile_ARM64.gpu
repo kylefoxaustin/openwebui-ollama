@@ -1,0 +1,132 @@
+# Stage 1: Build the frontend
+FROM arm64v8/node:20-slim AS frontend-builder
+WORKDIR /app
+
+# Clone OpenWebUI repository
+RUN apt-get update && apt-get install -y git && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+RUN git clone --depth 1 https://github.com/open-webui/open-webui.git .
+
+# Build frontend
+RUN npm ci && npm run build
+
+# Stage 2: Final image with CUDA support for Jetson
+FROM nvcr.io/nvidia/l4t-base:r35.4.1
+
+# Add metadata
+LABEL maintainer="Kyle <kfa.docker@gmail.com>"
+LABEL description="OpenWebUI with integrated Ollama for ARM64 (GPU Version)"
+LABEL version="1.0"
+LABEL org.opencontainers.image.source="https://github.com/kylefoxaustin/openwebui-ollama"
+LABEL org.opencontainers.image.licenses="MIT"
+
+WORKDIR /app
+
+# Set environment variables for non-interactive apt installation
+ENV DEBIAN_FRONTEND=noninteractive \
+    TZ=Etc/UTC \
+    PYTHONPATH="/app/backend"
+
+# Install Python 3.11 and dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    software-properties-common \
+    && add-apt-repository -y ppa:deadsnakes/ppa \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+    python3.11 \
+    python3.11-distutils \
+    python3.11-dev \
+    python3.11-venv \
+    python3-pip \
+    curl \
+    git \
+    libmagic1 \
+    poppler-utils \
+    ffmpeg libsm6 libxext6 \
+    netcat-openbsd \
+    supervisor \
+    bash \
+    wget \
+    tzdata \
+    libgomp1 \
+    libstdc++6 \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Make python3.11 the default python
+RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1 && \
+    update-alternatives --set python3 /usr/bin/python3.11 && \
+    wget https://bootstrap.pypa.io/get-pip.py && \
+    python3 get-pip.py && \
+    rm get-pip.py
+
+# Install Ollama for ARM64 and setup CUDA environment
+ENV LD_LIBRARY_PATH="/usr/local/cuda/lib64:${LD_LIBRARY_PATH}"
+RUN wget -qO- https://ollama.com/install.sh | sh
+
+# Copy built frontend from stage 1
+COPY --from=frontend-builder /app/build /app/build
+COPY --from=frontend-builder /app/backend /app/backend
+COPY --from=frontend-builder /app/CHANGELOG.md /app/
+COPY --from=frontend-builder /app/package.json /app/
+
+# Create a virtual environment to avoid package conflicts
+RUN python3 -m venv /venv
+ENV PATH="/venv/bin:$PATH"
+
+# Install Python dependencies in the virtual environment
+RUN pip3 install --no-cache-dir --upgrade pip setuptools wheel && \
+    pip3 install --no-cache-dir -r /app/backend/requirements.txt --ignore-installed && \
+    pip3 install --no-cache-dir uvicorn fastapi
+
+# Create data directories
+RUN mkdir -p /app/backend/data && chmod -R 777 /app/backend/data && \
+    mkdir -p /root/.ollama && chmod -R 777 /root/.ollama
+
+# Set environment variables for GPU usage
+ENV OLLAMA_HOST="0.0.0.0" \
+    PORT=8080 \
+    HOST=0.0.0.0 \
+    OLLAMA_BASE_URL="http://localhost:11434" \
+    NVIDIA_VISIBLE_DEVICES=all \
+    NVIDIA_DRIVER_CAPABILITIES=compute,utility \
+    OLLAMA_SKIP_CPU_GENERATE=1 \
+    PATH="/venv/bin:$PATH" \
+    PYTHONPATH="/app/backend:$PYTHONPATH"
+
+# Create log directory
+RUN mkdir -p /var/log/supervisor
+
+# Set up supervisor configuration with detailed logging
+RUN echo '[supervisord]\n\
+nodaemon=true\n\
+logfile=/var/log/supervisor/supervisord.log\n\
+logfile_maxbytes=50MB\n\
+logfile_backups=10\n\
+loglevel=info\n\
+\n\
+[program:ollama]\n\
+command=/usr/local/bin/ollama serve\n\
+environment=OLLAMA_HOST="0.0.0.0",OLLAMA_SKIP_CPU_GENERATE=1,LD_LIBRARY_PATH="/usr/local/cuda/lib64:%(ENV_LD_LIBRARY_PATH)s"\n\
+stderr_logfile=/var/log/supervisor/ollama.err.log\n\
+stdout_logfile=/var/log/supervisor/ollama.out.log\n\
+\n\
+[program:openwebui]\n\
+command=bash -c "cd /app/backend && /venv/bin/python -m uvicorn open_webui.main:app --host 0.0.0.0 --port 8080 --log-level debug"\n\
+stderr_logfile=/var/log/supervisor/openwebui.err.log\n\
+stdout_logfile=/var/log/supervisor/openwebui.out.log\n\
+' > /etc/supervisor/conf.d/supervisord.conf
+
+# Expose ports
+EXPOSE 8080 11434
+
+# Create volumes
+VOLUME /root/.ollama
+VOLUME /app/backend/data
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD curl -f http://localhost:8080/ || exit 1
+
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
