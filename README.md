@@ -5,8 +5,10 @@ Welcome to the OpenWebUI-Ollama single container repository!
 
 This will enable you to build Docker images combining [OpenWebUI](https://github.com/open-webui/open-webui) with [Ollama](https://github.com/ollama/ollama) in a single container for a seamless AI development experience.
 
-I created this container so that I can use OpenWebUI to quickly create a new LLM model with Knowledge bases (RAG) attached via OWUI's simple browser interface. 
+I created this container so that I can use OpenWebUI to quickly create a new LLM model with Knowledge bases (RAG) attached via OWUI's simple browser interface.
+
 It also allows me to push that container into a new image such as "Kyle's Home A/C Equipment Expert:Tinyllama and push to my docker.hub. 
+
 In effect, give me the ability to easily create my own RAG models (using whatever LLM i want to) which are 'experts' on topics I am interested in.
 
 ## Repository Structure
