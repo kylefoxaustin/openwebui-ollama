@@ -7,11 +7,17 @@ This will enable you to build Docker images combining [OpenWebUI](https://github
 
 I created this container so that I can use OpenWebUI to quickly create a new LLM model with Knowledge bases (RAG) attached via OWUI's simple browser interface.
 
-It also allows me to push that container into a new image such as "Kyle's Home A/C Equipment Expert:Tinyllama and push to my docker.hub. 
+It also allows me to push that container into a new image such as "Kyle's Home A/C Equipment Expert:Tinyllama" 
 
-In effect, give me the ability to easily create my own RAG models (using whatever LLM i want to) which are 'experts' on topics I am interested in.
+In effect, this gives me the ability to easily create my own RAG models (using whatever LLM I want to) which are 'experts' on topics I am interested in.
 
 But I am able to do this 100% locally to whatever machine I pull the image into, no server's or communication needed with outside entities. 
+
+I made sure this container will run on an Intel/AMD CPU by default (CPU-Only container).  However I built the GPU container to use
+
+an NVIDIA GPU which is installed on the system.  Note that if the GPU 'fails' to be seen, the GPU container will default to use the main cores.
+
+Have fun!
 
 ## Repository Structure
 
