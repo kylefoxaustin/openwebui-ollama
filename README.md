@@ -18,9 +18,7 @@ These containers are designed to internally store the LLM you pull into it as we
 
 This container will run 100% locally on the machine it is run on.  The only internet traffic would be when you pull a new model from ollama.  
 
-Finally, I made sure this container will run on an Intel/AMD CPU by default (CPU-Only container).  However I built the GPU container to use
-
-an NVIDIA GPU which is installed on the system.  Note that if the GPU 'fails' to be seen, the GPU container will default to use the main cores.
+Finally, I made sure this container will run on an Intel/AMD CPU by default (CPU-Only container).  However I built the GPU container to use an NVIDIA GPU which is installed on the system.  Note that if the GPU 'fails' to be seen, the GPU container will default to use the main cores.
 
 Have fun!
 
