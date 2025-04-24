@@ -14,9 +14,7 @@ Viola, instant expert system!
 I have already built the containers and placed in my docker.hub repository here: ([https://github.com/open-webui/open-webui)](https://hub.docker.com/r/kylefoxaustin/openwebui-ollama)
 so that you do not have to build them yourself.   Just pull the container and run it. 
 
-These containers are designed to internally store the LLM you pull into it as well as the RAG data you add to a Knowledge Base. 
-
-That way, once it is exactly how you want it, you can use docker to push the container as a new image to your docker.hub site.  e.g. "my_expert:latest". 
+These containers are designed to internally store the LLM you pull into it as well as the RAG data you add to a Knowledge Base. That way, once it is exactly how you want it, you can use docker to push the container as a new image to your docker.hub site.  e.g. "my_expert:latest". 
 
 This container will run 100% locally on the machine it is run on.  The only internet traffic would be when you pull a new model from ollama.  
 
