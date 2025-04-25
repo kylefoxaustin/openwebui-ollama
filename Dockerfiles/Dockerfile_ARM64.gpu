@@ -11,8 +11,8 @@ RUN git clone --depth 1 https://github.com/open-webui/open-webui.git .
 # Build frontend
 RUN npm ci && npm run build
 
-# Stage 2: Final image with CUDA support for Jetson
-FROM nvcr.io/nvidia/l4t-base:r35.4.1
+# Stage 2: Final image with ARM64 support - using Python 3.11
+FROM arm64v8/python:3.11-slim
 
 # Add metadata
 LABEL maintainer="Kyle <kfa.docker@gmail.com>"
@@ -26,19 +26,11 @@ WORKDIR /app
 # Set environment variables for non-interactive apt installation
 ENV DEBIAN_FRONTEND=noninteractive \
     TZ=Etc/UTC \
-    PYTHONPATH="/app/backend"
+    PYTHONPATH="/app/backend" \
+    LD_LIBRARY_PATH="/usr/local/cuda/lib64:${LD_LIBRARY_PATH}"
 
-# Install Python 3.11 and dependencies
+# Install dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    software-properties-common \
-    && add-apt-repository -y ppa:deadsnakes/ppa \
-    && apt-get update \
-    && apt-get install -y --no-install-recommends \
-    python3.11 \
-    python3.11-distutils \
-    python3.11-dev \
-    python3.11-venv \
-    python3-pip \
     curl \
     git \
     libmagic1 \
@@ -51,19 +43,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tzdata \
     libgomp1 \
     libstdc++6 \
+    gnupg \
+    ca-certificates \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Make python3.11 the default python
-RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1 && \
-    update-alternatives --set python3 /usr/bin/python3.11 && \
-    wget https://bootstrap.pypa.io/get-pip.py && \
-    python3 get-pip.py && \
-    rm get-pip.py
-
-# Install Ollama for ARM64 and setup CUDA environment
-ENV LD_LIBRARY_PATH="/usr/local/cuda/lib64:${LD_LIBRARY_PATH}"
-RUN wget -qO- https://ollama.com/install.sh | sh
+# Install Ollama for ARM64
+RUN curl -fsSL https://ollama.com/install.sh | sh
 
 # Copy built frontend from stage 1
 COPY --from=frontend-builder /app/build /app/build
@@ -72,13 +58,13 @@ COPY --from=frontend-builder /app/CHANGELOG.md /app/
 COPY --from=frontend-builder /app/package.json /app/
 
 # Create a virtual environment to avoid package conflicts
-RUN python3 -m venv /venv
+RUN python -m venv /venv
 ENV PATH="/venv/bin:$PATH"
 
 # Install Python dependencies in the virtual environment
-RUN pip3 install --no-cache-dir --upgrade pip setuptools wheel && \
-    pip3 install --no-cache-dir -r /app/backend/requirements.txt --ignore-installed && \
-    pip3 install --no-cache-dir uvicorn fastapi
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir -r /app/backend/requirements.txt --ignore-installed && \
+    pip install --no-cache-dir uvicorn fastapi
 
 # Create data directories
 RUN mkdir -p /app/backend/data && chmod -R 777 /app/backend/data && \
