@@ -5,20 +5,20 @@ Welcome to the OpenWebUI-Ollama single container repository!
 
 This will enable you to build Docker images combining [OpenWebUI](https://github.com/open-webui/open-webui) with [Ollama](https://github.com/ollama/ollama) in a single container for a seamless AI development experience.
 
-I created this container for my own personal use.  I wanted a super easy way to build a RAG model using an LLM. Reason is so I can create and run locally my own 'expert' system on whatever I wanted (e.g. "AC_Equip_expert"). 
+I created this container for my own personal use. I wanted a super easy way to build a RAG model using an LLM. Reason is so I can create and run locally my own 'expert' system on whatever I wanted (e.g. "AC_Equip_expert"). 
 
-You can already acheive this using separate OWUI and ollama containers, but that is a hassle.  I wanted a single container to use and build from. The ease of use comes from using OWUI to pull an ollama model, then add .pdfs to a knowledge base (Rag), attach that KB to the ollama LLM model.
+You can already achieve this using separate OWUI and ollama containers, but that is a hassle. I wanted a single container to use and build from. The ease of use comes from using OWUI to pull an ollama model, then add .pdfs to a knowledge base (Rag), attach that KB to the ollama LLM model.
 
 Viola, instant expert system! 
 
-I have already built the containers and placed in my docker.hub repository here: ([https://github.com/open-webui/open-webui)](https://hub.docker.com/r/kylefoxaustin/openwebui-ollama)
-so that you do not have to build them yourself.   Just pull the container and run it. 
+I have already built the containers and placed in my docker.hub repository here: ([https://hub.docker.com/r/kylefoxaustin/openwebui-ollama](https://hub.docker.com/r/kylefoxaustin/openwebui-ollama))
+so that you do not have to build them yourself. Just pull the container and run it. 
 
-These containers are designed to internally store the LLM you pull into it as well as the RAG data you add to a Knowledge Base. That way, once it is exactly how you want it, you can use docker to push the container as a new image to your docker.hub site.  e.g. "my_expert:latest". 
+These containers are designed to internally store the LLM you pull into it as well as the RAG data you add to a Knowledge Base. That way, once it is exactly how you want it, you can use docker to push the container as a new image to your docker.hub site. e.g. "my_expert:latest". 
 
-This container will run 100% locally on the machine it is run on.  The only internet traffic would be when you pull a new model from ollama.  
+This container will run 100% locally on the machine it is run on. The only internet traffic would be when you pull a new model from ollama.  
 
-Finally, I made sure this container will run on an Intel/AMD CPU by default (CPU-Only container).  However I built the GPU container to use an NVIDIA GPU which is installed on the system.  Note that if the GPU 'fails' to be seen, the GPU container will default to use the main cores.
+Finally, I made sure this container will run on an Intel/AMD CPU by default (CPU-Only container). However I built the GPU container to use an NVIDIA GPU which is installed on the system. Note that if the GPU 'fails' to be seen, the GPU container will default to use the main cores.
 
 Have fun!
 
@@ -27,15 +27,15 @@ Have fun!
 ```
 openwebui-ollama/
 ├── Dockerfiles/
-│   ├── Dockerfile.cpu        # Dockerfile for CPU-only container
-│   └── Dockerfile.gpu        # Dockerfile for GPU-enabled container
+│   ├── Dockerfile.cpu           # Dockerfile for CPU-only container
+│   ├── Dockerfile.gpu           # Dockerfile for GPU-enabled container
+│   ├── Dockerfile_ARM64.cpu     # Dockerfile for ARM64 CPU-only container
+│   └── Dockerfile_ARM64.gpu     # Dockerfile for ARM64 GPU-enabled container
 ├── tools/
-│   ├── tag_push.sh           # Script for tagging and pushing images
+│   ├── tag_push.sh              # Script for tagging and pushing images
 │   └── test_script_cpu_gpu_containers.sh  # Test script for validating containers
-└── README.md                 # This documentation
+└── README.md                    # This documentation
 ```
-
-
 
 ## Table of Contents
 - [Repository Structure](#repository-structure)
@@ -52,6 +52,7 @@ openwebui-ollama/
 - [Updating](#updating)
 - [Performance Tuning](#performance-tuning)
 - [Testing](#testing)
+- [ARM64 Support](#arm64-support)
 - [License](#license)
 
 ## Overview
@@ -212,6 +213,10 @@ Replace `<ollama-host>` with the hostname or IP address of your Ollama server.
 | `OLLAMA_BASE_URL` | URL for OpenWebUI to connect to Ollama | `http://localhost:11434` |
 | `NVIDIA_VISIBLE_DEVICES` | (GPU only) Controls which GPUs are visible | `all` |
 | `NVIDIA_DRIVER_CAPABILITIES` | (GPU only) Required NVIDIA capabilities | `compute,utility` |
+| `OLLAMA_GPU_LAYERS` | Number of model layers to offload to GPU | `0` (CPU) or full model (GPU) |
+| `OLLAMA_NUM_PARALLEL` | Concurrent request processing | `1` |
+| `OLLAMA_MAX_QUEUE` | Maximum queued requests | `5` |
+| `OLLAMA_LOAD_TIMEOUT` | Model loading timeout | `5m` |
 
 ## Data Persistence
 
@@ -398,8 +403,6 @@ These containers are designed for development and testing purposes. If deploying
 
 5. **Regularly update** the images to get the latest security patches.
 
-
-
 ## Updating
 
 To update to the latest version:
@@ -497,6 +500,140 @@ The test script will:
 4. Confirm that the Ollama API is working
 5. For GPU containers, verify GPU accessibility
 6. Provide a detailed test summary
+
+## ARM64 Support
+
+This repository also includes Dockerfiles for ARM64 architecture, specifically targeting NVIDIA Jetson devices (Nano, Xavier, and Orin series). These Dockerfiles enable you to run OpenWebUI with Ollama on ARM64 platforms, with both CPU-only and GPU-accelerated options.
+
+### ARM64 System Requirements
+
+- ARM64-based device (e.g., NVIDIA Jetson, Raspberry Pi 4/5 with 64-bit OS, etc.)
+- For CPU version: 8GB+ RAM recommended
+- For GPU version (NVIDIA Jetson only):
+  - NVIDIA Jetson device (Nano, Xavier, Orin)
+  - JetPack 5.1.2 or later (JetPack 6.0 recommended for Orin devices)
+  - At least 8GB RAM (16GB+ recommended for larger models)
+
+> **Note:** These containers have been successfully tested on an NVIDIA Jetson Orin AGX platform with 64GB RAM and a 1TB SSD.
+
+### Building for ARM64
+
+#### Building the ARM64 CPU Image
+
+```bash
+# Build the ARM64 CPU image
+docker build -f Dockerfiles/Dockerfile_ARM64.cpu -t openwebui:arm64-cpu .
+```
+
+#### Building the ARM64 GPU Image (Jetson only)
+
+```bash
+# Build the ARM64 GPU image
+docker build -f Dockerfiles/Dockerfile_ARM64.gpu -t openwebui:arm64-gpu .
+```
+
+### Running on ARM64
+
+#### CPU Version
+
+```bash
+docker run -d \
+  --name openwebui-arm \
+  -p 8080:8080 \
+  -p 11434:11434 \
+  -v ollama-data:/root/.ollama \
+  -v openwebui-data:/app/backend/data \
+  kylefoxaustin/openwebui-ollama:arm64-cpu
+```
+
+#### GPU Version (Jetson only)
+
+```bash
+docker run -d \
+  --name openwebui-arm-gpu \
+  --runtime nvidia \
+  -p 8080:8080 \
+  -p 11434:11434 \
+  -v ollama-data:/root/.ollama \
+  -v openwebui-data:/app/backend/data \
+  -v /usr/local/cuda:/usr/local/cuda \
+  -e OLLAMA_HOST=0.0.0.0 \
+  -e OLLAMA_NUM_PARALLEL=1 \
+  -e OLLAMA_GPU_LAYERS=20 \
+  -e OLLAMA_MAX_QUEUE=1 \
+  kylefoxaustin/openwebui-ollama:arm64-gpu
+```
+
+### Understanding GPU Layer Configuration for Jetson Devices
+
+NVIDIA Jetson devices have a different GPU architecture compared to desktop/server NVIDIA GPUs. The GPU in Jetson devices (Nano, Xavier, Orin) is designed for edge AI applications and has different performance characteristics and memory bandwidth constraints. 
+
+The `OLLAMA_GPU_LAYERS` parameter is particularly important as it determines how many model layers are offloaded to the GPU:
+
+- **Higher values** (e.g., all layers): Pushes more computation to the GPU but may overwhelm memory bandwidth on Jetson devices
+- **Lower values** (e.g., 20 layers): Creates a better balance between GPU and CPU processing for Jetson's architecture
+- **Setting to 0**: Forces CPU-only operation even in the GPU container
+
+Different Jetson models require different settings:
+
+- **Jetson Nano (4GB)**: May only work with CPU mode or very few GPU layers (5-10)
+- **Jetson Xavier**: Can handle 15-20 layers for mid-sized models
+- **Jetson Orin Nano**: Can handle 15-25 layers depending on model size
+- **Jetson Orin AGX**: Can handle 20-29 layers depending on model size
+
+The `OLLAMA_NUM_PARALLEL` parameter controls concurrent processing tasks, which should be limited on constrained devices:
+
+- Use `1` for Nano and Xavier
+- Try `2-4` for Orin models with sufficient RAM
+
+### Troubleshooting ARM64 Builds
+
+#### Common Issues with ARM64 CPU Version
+
+1. **Package Installation Failures**: Some Python packages may not have ARM64 wheels available. If you encounter build errors, try modifying the requirements or building packages from source.
+
+2. **Performance Issues**: ARM CPUs are typically less powerful than x86_64 CPUs. Consider using smaller models optimized for less powerful hardware.
+
+#### Common Issues with ARM64 GPU Version (Jetson)
+
+1. **GPU Not Detected**: Ensure your Jetson device has the proper NVIDIA drivers installed and that you're using the `--runtime nvidia` flag when running the container.
+
+2. **Internal Server Errors (HTTP 500)**: This often indicates that the model is overwhelming the GPU. Solutions include:
+
+   - **Reduce GPU layers**: Lower the `OLLAMA_GPU_LAYERS` value to offload fewer layers to the GPU
+   - **Mount CUDA libraries**: Ensure `-v /usr/local/cuda:/usr/local/cuda` is present
+   - **Limit parallelism**: Use `-e OLLAMA_NUM_PARALLEL=1`
+   - **Control queue depth**: Add `-e OLLAMA_MAX_QUEUE=1`
+
+3. **Slow Model Loading or Timeouts**: Jetson devices have limited GPU memory and bandwidth:
+   
+   - Use smaller quantized models (e.g., Llama3-8B-Q4, TinyLlama)
+   - Increase timeouts with `-e OLLAMA_LOAD_TIMEOUT=10m`
+   - For Nano, consider sticking with CPU-only mode for larger models
+
+#### Optimizing for Different Jetson Models
+
+Each Jetson platform has different capabilities requiring specific tuning:
+
+**Jetson Nano (4GB):**
+- Best with CPU-only container for most models
+- For GPU usage, limit to very small models with high quantization (TinyLlama, Q4)
+- Set `OLLAMA_GPU_LAYERS=5` to minimize GPU memory usage
+
+**Jetson Xavier:**
+- Can handle medium-sized models with Q4 quantization
+- Set `OLLAMA_GPU_LAYERS=15` for balanced performance
+- Limit to 1-2 parallel processes
+
+**Jetson Orin Nano:**
+- Works well with 7B-8B class models
+- Try `OLLAMA_GPU_LAYERS=20` as a starting point
+- Can handle some parallelism with `-e OLLAMA_NUM_PARALLEL=2`
+
+**Jetson Orin AGX:**
+- Can run larger models (up to 13B with quantization)
+- Effective with `OLLAMA_GPU_LAYERS=20` for stability
+- Can handle higher parallelism depending on model size
 
 ## License
 
