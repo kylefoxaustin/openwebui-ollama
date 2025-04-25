@@ -18,7 +18,9 @@ These containers are designed to internally store the LLM you pull into it as we
 
 This container will run 100% locally on the machine it is run on. The only internet traffic would be when you pull a new model from ollama.  
 
-Finally, I made sure this container will run on an Intel/AMD CPU by default (CPU-Only container). However I built the GPU container to use an NVIDIA GPU which is installed on the system. Note that if the GPU 'fails' to be seen, the GPU container will default to use the main cores.
+Finally, I made sure this container will run on an Intel/AMD CPU or ARM64 CPU by default (CPU-Only container). However I built the GPU container to use an NVIDIA GPU which is installed on the system. Note that if the GPU 'fails' to be seen, the GPU container will default to use the main cores.
+
+Lastly I chose not to build a multi-architecture Dockerfile for the build.   The Dockerfile.cpu (gpu) are Intel/AMD and the Dockerfile.cpu(gpu)-ARM64 files are DIFFERENT.  You cannot take the Intel/AMD dockerfiles and build them on an ARM platform.  You must use the -ARM64 files.
 
 Have fun!
 
