@@ -41,18 +41,24 @@ openwebui-ollama/
 - [Repository Structure](#repository-structure)
 - [Overview](#overview)
 - [System Requirements](#system-requirements)
-- [Building the Docker Images](#building-the-docker-images)
-- [Running the Containers](#running-the-containers)
+  - [Intel/AMD (x86_64) Requirements](#intelamd-x86_64-requirements)
+  - [ARM64 Requirements](#arm64-requirements)
+- [Building and Running](#building-and-running)
+  - [Intel/AMD Builds](#intelamd-builds)
+  - [ARM64 Builds](#arm64-builds)
 - [Usage Scenarios](#usage-scenarios)
 - [Environment Variables](#environment-variables)
 - [Data Persistence](#data-persistence)
 - [Troubleshooting](#troubleshooting)
+  - [Common Issues](#common-issues)
+  - [ARM64-Specific Issues](#arm64-specific-issues)
 - [Advanced Configuration](#advanced-configuration)
 - [Security Considerations](#security-considerations)
 - [Updating](#updating)
 - [Performance Tuning](#performance-tuning)
+  - [Intel/AMD Performance](#intelamd-performance)
+  - [ARM64 Performance](#arm64-performance)
 - [Testing](#testing)
-- [ARM64 Support](#arm64-support)
 - [License](#license)
 
 ## Overview
@@ -68,25 +74,40 @@ The images are available in both CPU and GPU variants to suit different hardware
 
 ## System Requirements
 
-### CPU Version
-- **Architecture**: x86_64 only (Intel or AMD CPUs, not ARM64/Apple Silicon)
+### Intel/AMD (x86_64) Requirements
+
+#### CPU Version
+- **Architecture**: x86_64 only (Intel or AMD CPUs)
 - **Minimum**: 4 CPU cores, 8GB RAM
 - **Recommended**: 8+ CPU cores, 16GB+ RAM
 - At least 10GB free disk space (more needed for models)
 
-### GPU Version
-- **Architecture**: x86_64 only (Intel or AMD CPUs, not ARM64/Apple Silicon)
+#### GPU Version
+- **Architecture**: x86_64 only (Intel or AMD CPUs)
 - **Minimum**: NVIDIA GPU with 4GB VRAM, CUDA 11.7+
 - **Recommended**: NVIDIA GPU with 8GB+ VRAM
 - NVIDIA drivers 525.60.13 or later
 - [NVIDIA Container Toolkit](https://github.com/NVIDIA/nvidia-docker) installed
 - At least 10GB free disk space (more needed for models)
 
-## Building the Docker Images
+### ARM64 Requirements
 
-This repository contains Dockerfiles to build both CPU and GPU versions of the combined OpenWebUI and Ollama container.
+- **Architecture**: ARM64-based device (NVIDIA Jetson, Raspberry Pi 4/5 with 64-bit OS)
+- **CPU Version**:
+  - 8GB+ RAM recommended
+  - At least 10GB free disk space
 
-### Clone the repository
+- **GPU Version** (NVIDIA Jetson only):
+  - NVIDIA Jetson device (Nano, Xavier, Orin)
+  - JetPack 5.1.2 or later (JetPack 6.0 recommended for Orin)
+  - At least 8GB RAM (16GB+ recommended for larger models)
+  - At least 10GB free disk space
+
+> **Note:** The ARM64 GPU containers have been successfully tested on an NVIDIA Jetson Orin AGX platform with 64GB RAM and a 1TB SSD.
+
+## Building and Running
+
+Begin by cloning the repository:
 
 ```bash
 # Clone the repository
@@ -94,27 +115,23 @@ git clone https://github.com/kylefoxaustin/openwebui-ollama.git
 cd openwebui-ollama
 ```
 
-### Building the CPU Image
+### Intel/AMD Builds
+
+#### Building Intel/AMD Images
 
 ```bash
 # Build the CPU image
 docker build -f Dockerfiles/Dockerfile.cpu -t openwebui:cpu .
-```
 
-### Building the GPU Image
-
-```bash
 # Build the GPU image (requires NVIDIA Container Toolkit)
 docker build -f Dockerfiles/Dockerfile.gpu -t openwebui:gpu .
 ```
 
-Note: The GPU image will automatically fall back to CPU operation if no compatible NVIDIA GPU is detected or if the proper NVIDIA drivers and container toolkit are not installed. This makes it safe to use the GPU image even if you're unsure about your GPU configuration.
+Note: The GPU image will automatically fall back to CPU operation if no compatible NVIDIA GPU is detected or if the proper NVIDIA drivers and container toolkit are not installed.
 
-## Running the Containers
+#### Running Intel/AMD Containers
 
-After building the images, you can run them as follows:
-
-### CPU Version
+##### CPU Version
 
 ```bash
 docker run -d \
@@ -126,7 +143,7 @@ docker run -d \
   openwebui:cpu
 ```
 
-### GPU Version
+##### GPU Version
 
 ```bash
 docker run -d \
@@ -139,7 +156,49 @@ docker run -d \
   openwebui:gpu
 ```
 
-Note: If you run the GPU version without the `--gpus all` flag or on a system without a compatible NVIDIA GPU, the container will automatically operate in CPU-only mode. This makes the GPU image versatile for deployment across different environments.
+### ARM64 Builds
+
+#### Building ARM64 Images
+
+```bash
+# Build the ARM64 CPU image
+docker build -f Dockerfiles/Dockerfile_ARM64.cpu -t openwebui:arm64-cpu .
+
+# Build the ARM64 GPU image (Jetson only)
+docker build -f Dockerfiles/Dockerfile_ARM64.gpu -t openwebui:arm64-gpu .
+```
+
+#### Running ARM64 Containers
+
+##### CPU Version
+
+```bash
+docker run -d \
+  --name openwebui-arm \
+  -p 8080:8080 \
+  -p 11434:11434 \
+  -v ollama-data:/root/.ollama \
+  -v openwebui-data:/app/backend/data \
+  kylefoxaustin/openwebui-ollama:arm64-cpu
+```
+
+##### GPU Version (Jetson only)
+
+```bash
+docker run -d \
+  --name openwebui-arm-gpu \
+  --runtime nvidia \
+  -p 8080:8080 \
+  -p 11434:11434 \
+  -v ollama-data:/root/.ollama \
+  -v openwebui-data:/app/backend/data \
+  -v /usr/local/cuda:/usr/local/cuda \
+  -e OLLAMA_HOST=0.0.0.0 \
+  -e OLLAMA_NUM_PARALLEL=1 \
+  -e OLLAMA_GPU_LAYERS=20 \
+  -e OLLAMA_MAX_QUEUE=1 \
+  kylefoxaustin/openwebui-ollama:arm64-gpu
+```
 
 Access the web interface at: http://localhost:8080
 
@@ -300,6 +359,31 @@ docker run --rm -v openwebui-data:/data -v ~/openwebui-backups:/backup \
    docker exec -it openwebui-gpu nvidia-smi
    ```
 
+### ARM64-Specific Issues
+
+#### ARM64 CPU Version
+
+1. **Package Installation Failures**: Some Python packages may not have ARM64 wheels available. If you encounter build errors, try modifying the requirements or building packages from source.
+
+2. **Performance Issues**: ARM CPUs are typically less powerful than x86_64 CPUs. Consider using smaller models optimized for less powerful hardware.
+
+#### Jetson GPU Troubleshooting
+
+1. **GPU Not Detected**: Ensure your Jetson device has the proper NVIDIA drivers installed and that you're using the `--runtime nvidia` flag when running the container.
+
+2. **Internal Server Errors (HTTP 500)**: This often indicates that the model is overwhelming the GPU. Solutions include:
+
+   - **Reduce GPU layers**: Lower the `OLLAMA_GPU_LAYERS` value to offload fewer layers to the GPU
+   - **Mount CUDA libraries**: Ensure `-v /usr/local/cuda:/usr/local/cuda` is present
+   - **Limit parallelism**: Use `-e OLLAMA_NUM_PARALLEL=1`
+   - **Control queue depth**: Add `-e OLLAMA_MAX_QUEUE=1`
+
+3. **Slow Model Loading or Timeouts**: Jetson devices have limited GPU memory and bandwidth:
+   
+   - Use smaller quantized models (e.g., Llama3-8B-Q4, TinyLlama)
+   - Increase timeouts with `-e OLLAMA_LOAD_TIMEOUT=10m`
+   - For Nano, consider sticking with CPU-only mode for larger models
+
 ## Advanced Configuration
 
 ### Docker Compose
@@ -429,7 +513,9 @@ docker run -d \
 
 ## Performance Tuning
 
-### CPU Performance
+### Intel/AMD Performance
+
+#### CPU Performance
 
 For better CPU performance:
 
@@ -443,7 +529,7 @@ For better CPU performance:
    docker run -d --cpuset-cpus="0-7" ... openwebui:cpu
    ```
 
-### GPU Performance
+#### GPU Performance
 
 For better GPU performance:
 
@@ -463,6 +549,45 @@ For better GPU performance:
      -e NVIDIA_DRIVER_CAPABILITIES=compute,utility,video \
      ... openwebui:gpu
    ```
+
+### ARM64 Performance
+
+#### Optimizing for Different Jetson Models
+
+Each Jetson platform has different capabilities requiring specific tuning:
+
+**Jetson Nano (4GB):**
+- Best with CPU-only container for most models
+- For GPU usage, limit to very small models with high quantization (TinyLlama, Q4)
+- Set `OLLAMA_GPU_LAYERS=5` to minimize GPU memory usage
+
+**Jetson Xavier:**
+- Can handle medium-sized models with Q4 quantization
+- Set `OLLAMA_GPU_LAYERS=15` for balanced performance
+- Limit to 1-2 parallel processes
+
+**Jetson Orin Nano:**
+- Works well with 7B-8B class models
+- Try `OLLAMA_GPU_LAYERS=20` as a starting point
+- Can handle some parallelism with `-e OLLAMA_NUM_PARALLEL=2`
+
+**Jetson Orin AGX:**
+- Can run larger models (up to 13B with quantization)
+- Effective with `OLLAMA_GPU_LAYERS=20` for stability
+- Can handle higher parallelism depending on model size
+
+#### GPU Layer Configuration for Jetson Devices
+
+The `OLLAMA_GPU_LAYERS` parameter is particularly important as it determines how many model layers are offloaded to the GPU:
+
+- **Higher values** (e.g., all layers): Pushes more computation to the GPU but may overwhelm memory bandwidth on Jetson devices
+- **Lower values** (e.g., 20 layers): Creates a better balance between GPU and CPU processing for Jetson's architecture
+- **Setting to 0**: Forces CPU-only operation even in the GPU container
+
+The `OLLAMA_NUM_PARALLEL` parameter controls concurrent processing tasks, which should be limited on constrained devices:
+
+- Use `1` for Nano and Xavier
+- Try `2-4` for Orin models with sufficient RAM
 
 ## Testing
 
@@ -500,140 +625,6 @@ The test script will:
 4. Confirm that the Ollama API is working
 5. For GPU containers, verify GPU accessibility
 6. Provide a detailed test summary
-
-## ARM64 Support
-
-This repository also includes Dockerfiles for ARM64 architecture, specifically targeting NVIDIA Jetson devices (Nano, Xavier, and Orin series). These Dockerfiles enable you to run OpenWebUI with Ollama on ARM64 platforms, with both CPU-only and GPU-accelerated options.
-
-### ARM64 System Requirements
-
-- ARM64-based device (e.g., NVIDIA Jetson, Raspberry Pi 4/5 with 64-bit OS, etc.)
-- For CPU version: 8GB+ RAM recommended
-- For GPU version (NVIDIA Jetson only):
-  - NVIDIA Jetson device (Nano, Xavier, Orin)
-  - JetPack 5.1.2 or later (JetPack 6.0 recommended for Orin devices)
-  - At least 8GB RAM (16GB+ recommended for larger models)
-
-> **Note:** These containers have been successfully tested on an NVIDIA Jetson Orin AGX platform with 64GB RAM and a 1TB SSD.
-
-### Building for ARM64
-
-#### Building the ARM64 CPU Image
-
-```bash
-# Build the ARM64 CPU image
-docker build -f Dockerfiles/Dockerfile_ARM64.cpu -t openwebui:arm64-cpu .
-```
-
-#### Building the ARM64 GPU Image (Jetson only)
-
-```bash
-# Build the ARM64 GPU image
-docker build -f Dockerfiles/Dockerfile_ARM64.gpu -t openwebui:arm64-gpu .
-```
-
-### Running on ARM64
-
-#### CPU Version
-
-```bash
-docker run -d \
-  --name openwebui-arm \
-  -p 8080:8080 \
-  -p 11434:11434 \
-  -v ollama-data:/root/.ollama \
-  -v openwebui-data:/app/backend/data \
-  kylefoxaustin/openwebui-ollama:arm64-cpu
-```
-
-#### GPU Version (Jetson only)
-
-```bash
-docker run -d \
-  --name openwebui-arm-gpu \
-  --runtime nvidia \
-  -p 8080:8080 \
-  -p 11434:11434 \
-  -v ollama-data:/root/.ollama \
-  -v openwebui-data:/app/backend/data \
-  -v /usr/local/cuda:/usr/local/cuda \
-  -e OLLAMA_HOST=0.0.0.0 \
-  -e OLLAMA_NUM_PARALLEL=1 \
-  -e OLLAMA_GPU_LAYERS=20 \
-  -e OLLAMA_MAX_QUEUE=1 \
-  kylefoxaustin/openwebui-ollama:arm64-gpu
-```
-
-### Understanding GPU Layer Configuration for Jetson Devices
-
-NVIDIA Jetson devices have a different GPU architecture compared to desktop/server NVIDIA GPUs. The GPU in Jetson devices (Nano, Xavier, Orin) is designed for edge AI applications and has different performance characteristics and memory bandwidth constraints. 
-
-The `OLLAMA_GPU_LAYERS` parameter is particularly important as it determines how many model layers are offloaded to the GPU:
-
-- **Higher values** (e.g., all layers): Pushes more computation to the GPU but may overwhelm memory bandwidth on Jetson devices
-- **Lower values** (e.g., 20 layers): Creates a better balance between GPU and CPU processing for Jetson's architecture
-- **Setting to 0**: Forces CPU-only operation even in the GPU container
-
-Different Jetson models require different settings:
-
-- **Jetson Nano (4GB)**: May only work with CPU mode or very few GPU layers (5-10)
-- **Jetson Xavier**: Can handle 15-20 layers for mid-sized models
-- **Jetson Orin Nano**: Can handle 15-25 layers depending on model size
-- **Jetson Orin AGX**: Can handle 20-29 layers depending on model size
-
-The `OLLAMA_NUM_PARALLEL` parameter controls concurrent processing tasks, which should be limited on constrained devices:
-
-- Use `1` for Nano and Xavier
-- Try `2-4` for Orin models with sufficient RAM
-
-### Troubleshooting ARM64 Builds
-
-#### Common Issues with ARM64 CPU Version
-
-1. **Package Installation Failures**: Some Python packages may not have ARM64 wheels available. If you encounter build errors, try modifying the requirements or building packages from source.
-
-2. **Performance Issues**: ARM CPUs are typically less powerful than x86_64 CPUs. Consider using smaller models optimized for less powerful hardware.
-
-#### Common Issues with ARM64 GPU Version (Jetson)
-
-1. **GPU Not Detected**: Ensure your Jetson device has the proper NVIDIA drivers installed and that you're using the `--runtime nvidia` flag when running the container.
-
-2. **Internal Server Errors (HTTP 500)**: This often indicates that the model is overwhelming the GPU. Solutions include:
-
-   - **Reduce GPU layers**: Lower the `OLLAMA_GPU_LAYERS` value to offload fewer layers to the GPU
-   - **Mount CUDA libraries**: Ensure `-v /usr/local/cuda:/usr/local/cuda` is present
-   - **Limit parallelism**: Use `-e OLLAMA_NUM_PARALLEL=1`
-   - **Control queue depth**: Add `-e OLLAMA_MAX_QUEUE=1`
-
-3. **Slow Model Loading or Timeouts**: Jetson devices have limited GPU memory and bandwidth:
-   
-   - Use smaller quantized models (e.g., Llama3-8B-Q4, TinyLlama)
-   - Increase timeouts with `-e OLLAMA_LOAD_TIMEOUT=10m`
-   - For Nano, consider sticking with CPU-only mode for larger models
-
-#### Optimizing for Different Jetson Models
-
-Each Jetson platform has different capabilities requiring specific tuning:
-
-**Jetson Nano (4GB):**
-- Best with CPU-only container for most models
-- For GPU usage, limit to very small models with high quantization (TinyLlama, Q4)
-- Set `OLLAMA_GPU_LAYERS=5` to minimize GPU memory usage
-
-**Jetson Xavier:**
-- Can handle medium-sized models with Q4 quantization
-- Set `OLLAMA_GPU_LAYERS=15` for balanced performance
-- Limit to 1-2 parallel processes
-
-**Jetson Orin Nano:**
-- Works well with 7B-8B class models
-- Try `OLLAMA_GPU_LAYERS=20` as a starting point
-- Can handle some parallelism with `-e OLLAMA_NUM_PARALLEL=2`
-
-**Jetson Orin AGX:**
-- Can run larger models (up to 13B with quantization)
-- Effective with `OLLAMA_GPU_LAYERS=20` for stability
-- Can handle higher parallelism depending on model size
 
 ## License
 
