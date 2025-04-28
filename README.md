@@ -613,10 +613,10 @@ The purpose of this script is to be run after you have completed
 your builds and want to push the images to your dockerhub.com account
 
 The tag and push script will:
-1. determine which host architecture its running on (AMD64 or ARM64)
-2. determine if the image exists locally
-3. tag the image with your name/image/version data
-4. push the image to your dockerhub.com account 
+1. Determine which host architecture its running on (AMD64 or ARM64)
+2. Determine if the image exists locally
+3. Tag the image with your name/image/version data
+4. Push the image to your dockerhub.com account 
 
 ### Using the Test Script(test_script_cpu_gpu_containers.sh)
 
