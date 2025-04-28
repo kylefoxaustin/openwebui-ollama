@@ -615,17 +615,17 @@ After building your images, you can tag and push them to Docker Hub:
 To verify that your built images are working correctly:
 
 1. Update the username in the script:
-```bash
-cd tools
-nano test_script_cpu_gpu_containers.sh
-# Change DOCKER_HUB_USERNAME, IMAGENAME, VERSION to your Docker Hub username, image, version
-```
+   ```bash
+   cd tools
+   nano test_script_cpu_gpu_containers.sh
+   # Change DOCKER_HUB_USERNAME, IMAGENAME, VERSION to your Docker Hub username, image, version
+   ```
 
 2. Run the script:
    ```bash
-chmod +x test_script_cpu_gpu_containers.sh
-./test_script_cpu_gpu_containers.sh
-```
+   chmod +x test_script_cpu_gpu_containers.sh
+   ./test_script_cpu_gpu_containers.sh
+   ```
 
 The test script will:
 1. Test if both CPU and GPU images can be used
