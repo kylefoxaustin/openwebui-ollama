@@ -609,10 +609,22 @@ After building your images, you can tag and push them to Docker Hub:
    chmod +x tag_push.sh
    ./tag_push.sh
    ```
+The purpose of this script is to be run after you have completed
+your builds and want to push the images to your dockerhub.com account
+
+The tag and push script will:
+1. determine which host architecture its running on (AMD64 or ARM64)
+2. determine if the image exists locally
+3. tag the image with your name/image/version data
+4. push the image to your dockerhub.com account 
 
 ### Using the Test Script(test_script_cpu_gpu_containers.sh)
 
-To verify that your built images are working correctly:
+This script will test each image to ensure it is working correctly.
+It runs without user intervention and checks the container is responding
+correctly to ollama and openwebui commands. 
+
+To use the script: 
 
 1. Update the username in the script:
    ```bash
@@ -628,12 +640,13 @@ To verify that your built images are working correctly:
    ```
 
 The test script will:
-1. Test if both CPU and GPU images can be used
-2. Verify that the containers start properly
-3. Test that OpenWebUI is accessible
-4. Confirm that the Ollama API is working
-5. For GPU containers, verify GPU accessibility
-6. Provide a detailed test summary
+1. Determine what host architecture it is running on (AMD64 or ARM64)
+2. Test if both CPU and GPU images can be used (e.g. if no GPU is present, just run CPU)
+3. Verify that the containers start properly
+4. Test that OpenWebUI is accessible
+5. Confirm that the Ollama API is working
+6. For GPU containers, verify GPU accessibility
+7. Provide a detailed test summary
 
 ## License
 
