@@ -2,8 +2,8 @@
 
 # Set variables - replace with your Docker Hub username
 DOCKER_HUB_USERNAME="yourusername"
-IMAGE_NAME="yourdockerimage"
-VERSION="latest"
+IMAGE_NAME="yourimagename"
+VERSION="yourversion"
 
 # Colors for output
 GREEN='\033[0;32m'
@@ -17,8 +17,25 @@ CPU_TEST_FAILED=false
 GPU_TEST_FAILED=false
 FAILURE_MESSAGES=()
 
-echo -e "${YELLOW}OpenWebUI with Ollama Docker Image Test Script${NC}"
+echo -e "${BLUE}OpenWebUI with Ollama Docker Image Test Script${NC}"
 echo "=========================================="
+
+# Detect architecture
+ARCH=$(uname -m)
+if [ "$ARCH" == "x86_64" ]; then
+  echo -e "${BLUE}Intel/AMD (x86_64) architecture detected${NC}"
+  echo -e "${YELLOW}Skipping ARM64 images - not compatible with this platform${NC}"
+  CPU_IMAGE="${DOCKER_HUB_USERNAME}/${IMAGE_NAME}:${VERSION}-cpu"
+  GPU_IMAGE="${DOCKER_HUB_USERNAME}/${IMAGE_NAME}:${VERSION}-gpu"
+elif [ "$ARCH" == "aarch64" ] || [ "$ARCH" == "arm64" ]; then
+  echo -e "${BLUE}ARM64 architecture detected${NC}"
+  echo -e "${YELLOW}Skipping Intel/AMD images - not compatible with this platform${NC}"
+  CPU_IMAGE="${DOCKER_HUB_USERNAME}/${IMAGE_NAME}:arm64-cpu"
+  GPU_IMAGE="${DOCKER_HUB_USERNAME}/${IMAGE_NAME}:arm64-gpu"
+else
+  echo -e "${RED}Unsupported architecture: $ARCH${NC}"
+  exit 1
+fi
 
 # Function to clean up containers
 cleanup() {
@@ -79,12 +96,12 @@ else
 fi
 
 # Test CPU image
-echo -e "\n${YELLOW}Testing CPU image: ${DOCKER_HUB_USERNAME}/${IMAGE_NAME}:${VERSION}-cpu${NC}"
+echo -e "\n${BLUE}Testing CPU image: ${CPU_IMAGE}${NC}"
 echo "----------------------------------------"
 
 # Pull the CPU image
 echo "Pulling CPU image..."
-if ! docker pull ${DOCKER_HUB_USERNAME}/${IMAGE_NAME}:${VERSION}-cpu; then
+if ! docker pull ${CPU_IMAGE}; then
     echo -e "${RED}Failed to pull CPU image.${NC}"
     CPU_TEST_FAILED=true
     FAILURE_MESSAGES+=("CPU image pull failed")
@@ -92,9 +109,9 @@ else
     # Run the CPU container with appropriate port mapping
     echo "Starting CPU container..."
     if [ "$OLLAMA_RUNNING" = true ]; then
-        docker run -d --name test-openwebui-cpu -p 8080:8080 -p ${CPU_OLLAMA_PORT}:11434 ${DOCKER_HUB_USERNAME}/${IMAGE_NAME}:${VERSION}-cpu
+        docker run -d --name test-openwebui-cpu -p 8080:8080 -p ${CPU_OLLAMA_PORT}:11434 ${CPU_IMAGE}
     else
-        docker run -d --name test-openwebui-cpu -p 8080:8080 -p ${CPU_OLLAMA_PORT}:11434 ${DOCKER_HUB_USERNAME}/${IMAGE_NAME}:${VERSION}-cpu
+        docker run -d --name test-openwebui-cpu -p 8080:8080 -p ${CPU_OLLAMA_PORT}:11434 ${CPU_IMAGE}
     fi
 
     # Check if container is running
@@ -118,6 +135,23 @@ else
             OLLAMA_RESPONSE=$(docker exec -it test-openwebui-cpu curl -s http://localhost:11434/api/tags)
             if [ ! -z "$OLLAMA_RESPONSE" ]; then
                 echo -e "${GREEN}Ollama API is working on CPU container.${NC}"
+                
+                # Test version information
+                echo "Checking component versions..."
+                echo "Ollama version:"
+                docker exec -it test-openwebui-cpu ollama --version
+                
+                # Test volume persistence
+                echo "Testing volume persistence..."
+                docker exec -it test-openwebui-cpu touch /app/backend/data/test_persistence.txt
+                if docker exec -it test-openwebui-cpu ls /app/backend/data/test_persistence.txt &>/dev/null; then
+                    echo -e "${GREEN}Successfully created test file in data volume.${NC}"
+                else
+                    echo -e "${RED}Failed to create test file in data volume.${NC}"
+                    CPU_TEST_FAILED=true
+                    FAILURE_MESSAGES+=("Volume persistence test failed on CPU container")
+                fi
+                
             else
                 echo -e "${RED}Failed to connect to Ollama API on CPU container.${NC}"
                 docker logs test-openwebui-cpu
@@ -134,24 +168,34 @@ else
     docker rm test-openwebui-cpu > /dev/null 2>&1
 fi
 
-# Test GPU image if NVIDIA GPU is available
+# Only test GPU if NVIDIA GPU is available AND on the correct architecture
 if command -v nvidia-smi &> /dev/null; then
-    echo -e "\n${YELLOW}Testing GPU image: ${DOCKER_HUB_USERNAME}/${IMAGE_NAME}:${VERSION}-gpu${NC}"
+    echo -e "\n${BLUE}Testing GPU image: ${GPU_IMAGE}${NC}"
     echo "----------------------------------------"
 
     # Pull the GPU image
     echo "Pulling GPU image..."
-    if ! docker pull ${DOCKER_HUB_USERNAME}/${IMAGE_NAME}:${VERSION}-gpu; then
+    if ! docker pull ${GPU_IMAGE}; then
         echo -e "${RED}Failed to pull GPU image.${NC}"
         GPU_TEST_FAILED=true
         FAILURE_MESSAGES+=("GPU image pull failed")
     else
         # Run GPU container with appropriate port mapping
         echo "Starting GPU container..."
-        if [ "$OLLAMA_RUNNING" = true ]; then
-            docker run -d --name test-openwebui-gpu --gpus all -p 8081:8080 -p ${GPU_OLLAMA_PORT}:11434 ${DOCKER_HUB_USERNAME}/${IMAGE_NAME}:${VERSION}-gpu
-        else
-            docker run -d --name test-openwebui-gpu --gpus all -p 8081:8080 -p ${GPU_OLLAMA_PORT}:11434 ${DOCKER_HUB_USERNAME}/${IMAGE_NAME}:${VERSION}-gpu
+        if [ "$ARCH" == "x86_64" ]; then
+            # For x86_64, use --gpus all
+            if [ "$OLLAMA_RUNNING" = true ]; then
+                docker run -d --name test-openwebui-gpu --gpus all -p 8081:8080 -p ${GPU_OLLAMA_PORT}:11434 ${GPU_IMAGE}
+            else
+                docker run -d --name test-openwebui-gpu --gpus all -p 8081:8080 -p ${GPU_OLLAMA_PORT}:11434 ${GPU_IMAGE}
+            fi
+        elif [ "$ARCH" == "aarch64" ] || [ "$ARCH" == "arm64" ]; then
+            # For ARM64 (Jetson), use --runtime nvidia
+            if [ "$OLLAMA_RUNNING" = true ]; then
+                docker run -d --name test-openwebui-gpu --runtime nvidia -p 8081:8080 -p ${GPU_OLLAMA_PORT}:11434 -v /usr/local/cuda:/usr/local/cuda ${GPU_IMAGE}
+            else
+                docker run -d --name test-openwebui-gpu --runtime nvidia -p 8081:8080 -p ${GPU_OLLAMA_PORT}:11434 -v /usr/local/cuda:/usr/local/cuda ${GPU_IMAGE}
+            fi
         fi
 
         # Check if container is running
@@ -162,8 +206,8 @@ if command -v nvidia-smi &> /dev/null; then
             GPU_TEST_FAILED=true
             FAILURE_MESSAGES+=("GPU container failed to start")
         else
-            # Wait for OpenWebUI to become available (timeout after 120 seconds)
-            if ! wait_for_service "test-openwebui-gpu" 8081 120; then
+            # Wait for OpenWebUI to become available (timeout after 180 seconds - GPU startup can be slower)
+            if ! wait_for_service "test-openwebui-gpu" 8081 180; then
                 echo -e "${RED}Failed to connect to OpenWebUI on GPU container.${NC}"
                 echo "Container logs:"
                 docker logs test-openwebui-gpu
@@ -175,6 +219,11 @@ if command -v nvidia-smi &> /dev/null; then
                 OLLAMA_RESPONSE=$(docker exec -it test-openwebui-gpu curl -s http://localhost:11434/api/tags)
                 if [ ! -z "$OLLAMA_RESPONSE" ]; then
                     echo -e "${GREEN}Ollama API is working on GPU container.${NC}"
+                    
+                    # Test version information
+                    echo "Checking component versions..."
+                    echo "Ollama version:"
+                    docker exec -it test-openwebui-gpu ollama --version
                 else
                     echo -e "${RED}Failed to connect to Ollama API on GPU container.${NC}"
                     docker logs test-openwebui-gpu
@@ -185,12 +234,34 @@ if command -v nvidia-smi &> /dev/null; then
 
                 # Test GPU accessibility
                 echo "Testing GPU accessibility..."
-                if docker exec -it test-openwebui-gpu nvidia-smi &> /dev/null; then
-                    echo -e "${GREEN}GPU is accessible inside the container.${NC}"
+                if [ "$ARCH" == "x86_64" ]; then
+                    if docker exec -it test-openwebui-gpu nvidia-smi &> /dev/null; then
+                        echo -e "${GREEN}GPU is accessible inside the container.${NC}"
+                    else
+                        echo -e "${RED}GPU is not accessible inside the container.${NC}"
+                        GPU_TEST_FAILED=true
+                        FAILURE_MESSAGES+=("GPU not accessible inside container")
+                    fi
+                elif [ "$ARCH" == "aarch64" ] || [ "$ARCH" == "arm64" ]; then
+                    # For Jetson, check CUDA library access
+                    if docker exec -it test-openwebui-gpu ls /usr/local/cuda/lib64 &> /dev/null; then
+                        echo -e "${GREEN}CUDA libraries are accessible inside the container.${NC}"
+                    else
+                        echo -e "${RED}CUDA libraries are not accessible inside the container.${NC}"
+                        GPU_TEST_FAILED=true
+                        FAILURE_MESSAGES+=("CUDA libraries not accessible inside container")
+                    fi
+                fi
+                
+                # Test volume persistence
+                echo "Testing volume persistence..."
+                docker exec -it test-openwebui-gpu touch /app/backend/data/test_persistence.txt
+                if docker exec -it test-openwebui-gpu ls /app/backend/data/test_persistence.txt &>/dev/null; then
+                    echo -e "${GREEN}Successfully created test file in data volume.${NC}"
                 else
-                    echo -e "${RED}GPU is not accessible inside the container.${NC}"
+                    echo -e "${RED}Failed to create test file in data volume.${NC}"
                     GPU_TEST_FAILED=true
-                    FAILURE_MESSAGES+=("GPU not accessible inside container")
+                    FAILURE_MESSAGES+=("Volume persistence test failed on GPU container")
                 fi
             fi
         fi
@@ -222,6 +293,6 @@ if [ "$CPU_TEST_FAILED" = true ] || [ "$GPU_TEST_FAILED" = true ]; then
 
     exit 1
 else
-    echo -e "${GREEN}All tests passed successfully!${NC}"
+    echo -e "${GREEN}All tests for $ARCH architecture passed successfully!${NC}"
     exit 0
 fi
