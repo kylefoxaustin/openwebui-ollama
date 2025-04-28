@@ -619,7 +619,7 @@ To verify that your built images are working correctly:
 cd tools
 nano test_script_cpu_gpu_containers.sh
 # Change DOCKER_HUB_USERNAME, IMAGENAME, VERSION to your Docker Hub username, image, version
-...
+```
 
 2. Run the script:
    ```bash
