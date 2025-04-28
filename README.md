@@ -601,7 +601,7 @@ After building your images, you can tag and push them to Docker Hub:
    ```bash
    cd tools
    nano tag_push.sh
-   # Change DOCKER_HUB_USERNAME to your Docker Hub username
+   # Change DOCKER_HUB_USERNAME, IMAGENAME, VERSION to your Docker Hub username, image, version
    ```
 
 2. Run the script:
