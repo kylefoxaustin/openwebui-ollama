@@ -593,7 +593,7 @@ The `OLLAMA_NUM_PARALLEL` parameter controls concurrent processing tasks, which 
 
 ## Testing
 
-### Using the Tag and Push Script
+### Using the Tag and Push Script (tag_push.sh)
 
 After building your images, you can tag and push them to Docker Hub:
 
@@ -610,12 +610,16 @@ After building your images, you can tag and push them to Docker Hub:
    ./tag_push.sh
    ```
 
-### Using the Test Script
+### Using the Test Script(test_script_cpu_gpu_containers.sh)
 
 To verify that your built images are working correctly:
 
 ```bash
 cd tools
+nano test_script_cpu_gpu_containers.sh
+# Change DOCKER_HUB_USERNAME, IMAGENAME, VERSION to your Docker Hub username, image, version
+...
+
 chmod +x test_script_cpu_gpu_containers.sh
 ./test_script_cpu_gpu_containers.sh
 ```
