@@ -1,9 +1,9 @@
 #!/bin/bash
 
 # Set variables - replace with your Docker Hub username
-DOCKER_HUB_USERNAME="kylefoxaustin"
-IMAGE_NAME="openwebui-ollama"
-VERSION="latest"
+DOCKER_HUB_USERNAME="yourusername"
+IMAGE_NAME="yourimagename"
+VERSION="yourversion"
 
 # Colors for output
 GREEN='\033[0;32m'
@@ -60,8 +60,8 @@ fi
 
 # For x86_64 architecture, also set the default "latest" tag
 if [ "$ARCH" == "x86_64" ]; then
-  echo -e "Setting default tag: ${YELLOW}$CPU_IMAGE → $DOCKER_HUB_USERNAME/$IMAGE_NAME:latest${NC}"
-  docker tag $CPU_IMAGE $DOCKER_HUB_USERNAME/$IMAGE_NAME:latest
+  echo -e "Setting default tag: ${YELLOW}$CPU_IMAGE → $DOCKER_HUB_USERNAME/$IMAGE_NAME:$VERSION${NC}"
+  docker tag $CPU_IMAGE $DOCKER_HUB_USERNAME/$IMAGE_NAME:$VERSION
 fi
 
 # Login to Docker Hub
@@ -82,8 +82,8 @@ fi
 
 # Push latest tag for x86_64
 if [ "$ARCH" == "x86_64" ]; then
-  echo -e "Pushing: ${YELLOW}$DOCKER_HUB_USERNAME/$IMAGE_NAME:latest${NC}"
-  docker push $DOCKER_HUB_USERNAME/$IMAGE_NAME:latest
+  echo -e "Pushing: ${YELLOW}$DOCKER_HUB_USERNAME/$IMAGE_NAME:$VERSION${NC}"
+  docker push $DOCKER_HUB_USERNAME/$IMAGE_NAME:$VERSION
 fi
 
 echo -e "\n${GREEN}All available images for $ARCH architecture pushed successfully!${NC}"
